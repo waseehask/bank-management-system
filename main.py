@@ -1,10 +1,13 @@
+import sqlite3
+import os
 from tkinter import *
 from tkinter import messagebox
-import sqlite3
 
-# ---------------- DB ----------------
+# ---------------- DB FIX ----------------
 def connect():
-    return sqlite3.connect("cat.db")
+    base_path = os.path.dirname(__file__)
+    db_path = os.path.join(base_path, "cat.db")
+    return sqlite3.connect(db_path)
 
 # ---------------- LOGIN ----------------
 def validate_login(username, password):
@@ -26,7 +29,7 @@ def login_action():
     else:
         messagebox.showerror("Error", "Invalid credentials")
 
-# ---------------- ACCOUNT CREATE ----------------
+# ---------------- CREATE ACCOUNT ----------------
 def create_account():
     acno = e1.get()
     name = e2.get()
@@ -39,8 +42,16 @@ def create_account():
 
     con = connect()
     cur = con.cursor()
+
+    # check duplicate
+    cur.execute("SELECT * FROM account WHERE acno=?", (acno,))
+    if cur.fetchone():
+        messagebox.showerror("Error", "Account already exists")
+        return
+
     cur.execute("INSERT INTO account VALUES(?,?,?,?)", (acno, name, typ, float(bal)))
     cur.execute("INSERT INTO transactions VALUES(?,?,?,?,?)", (acno, name, float(bal), 0.0, float(bal)))
+
     con.commit()
     con.close()
 
@@ -67,7 +78,7 @@ def deposit_action():
         return
 
     if amt <= 0:
-        messagebox.showerror("Error", "Amount must be > 0")
+        messagebox.showerror("Error", "Amount must be positive")
         return
 
     con = connect()
@@ -81,6 +92,7 @@ def deposit_action():
         return
 
     name, bal = row
+
     cur.execute("UPDATE account SET balance=balance+? WHERE acno=?", (amt, acno))
     cur.execute("INSERT INTO transactions VALUES(?,?,?,?,?)", (acno, name, amt, 0.0, bal + amt))
 
@@ -118,6 +130,10 @@ def withdraw_action():
         return
 
     name, bal = row
+
+    if amt <= 0:
+        messagebox.showerror("Error", "Invalid amount")
+        return
 
     if amt > bal:
         messagebox.showerror("Error", "Insufficient balance")
@@ -168,6 +184,9 @@ def transfer_action():
 
         fname, fbal = f
         tname, tbal = t
+
+        if amt <= 0:
+            raise Exception("Invalid amount")
 
         if amt > fbal:
             raise Exception("Insufficient balance")
@@ -221,3 +240,4 @@ e2.pack()
 Button(login_win, text="Login", command=login_action).pack()
 
 login_win.mainloop()
+   
